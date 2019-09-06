@@ -1,0 +1,9 @@
+/data/
+*.log
+nohup.out
+/loader/
+/**/__pycache__/
+/.empty/
+/.vscode/
+/result/
+/generate/
