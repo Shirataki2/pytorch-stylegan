@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torchvision import transforms
 from torch.optim import Adam, lr_scheduler
-from stylegan import StyleGanGenerator, StyleGanDiscriminator
+from models.stylegan import StyleGanGenerator, StyleGanDiscriminator
 import torchvision_sunner.transforms as trans
 import torchvision_sunner.data as dataset
 from losses import gradient_penalty, r1_penalty, r2_penalty
@@ -11,6 +11,7 @@ from torchvision.utils import save_image
 from tqdm import tqdm
 import logging
 import numpy as np
+import math
 import random
 import os
 
@@ -45,25 +46,17 @@ def train(opts):
         batch_size=opts.batch_size,
         shuffle=True
     )
-    start_epoch = 0
+    G = opts.G
+    D = opts.D
+    start_epoch = opts.start_epoch
     if opts.resume:
         try:
             assert os.path.exists(opts.resume)
-            state = torch.load(opts.resume)
-            opts = state['opts']
-            logger.info("Load Pretrained Options")
-        except:
-            logger.warn("Resume Options cannot Load")
-    G = StyleGanGenerator(opts.imsize, opts.use_specnorm, opts.device)
-    D = StyleGanDiscriminator(opts.imsize, opts.use_specnorm)
-    if opts.resume:
-        try:
-            assert os.path.exists(opts.resume)
-            logger.info("Load Pretrained Weight")
             state = torch.load(opts.resume)
             G.load_state_dict(state['G'])
             D.load_state_dict(state['D'])
             start_epoch = state['start_epoch']
+            logger.info("Load Pretrained Weight")
         except:
             logger.warn("Resume Files cannot Load")
             logger.info("Train from Scratch")
@@ -85,7 +78,7 @@ def train(opts):
     sp = nn.Softplus()
     g_store = [0.0]
     d_store = [0.0]
-    for epoch in range(start_epoch, opts.epochs):
+    for epoch in range(start_epoch, opts.epochs + 1):
         schedulerD.step()
         bar = tqdm(loader)
         glosses = []
@@ -116,13 +109,24 @@ def train(opts):
                 optimG.step()
             if i % opts.show_interval == 0:
                 with torch.no_grad():
+                    nr = int(math.ceil(math.sqrt(opts.batch_size)))
                     z = torch.randn([real.size(0), 512]).to(opts.device)
                     img = G(z).detach().cpu()
-                    save_image(img, os.path.join(opts.output, 'images', 'normal',
-                                                 f'{epoch:04}_{i:06}.png'), nrow=2, normalize=True)
+                    save_image(
+                        img,
+                        os.path.join(opts.output, 'images',
+                                     'normal', f'{epoch:04}_{i:06}.png'),
+                        nrow=nr,
+                        normalize=True
+                    )
                     img = G(fixed_z).detach().cpu()
-                    save_image(img, os.path.join(
-                        opts.output, 'images', 'fixed', f'{epoch:04}_{i:06}.png'), nrow=2, normalize=True)
+                    save_image(
+                        img,
+                        os.path.join(opts.output, 'images',
+                                     'fixed', f'{epoch:04}_{i:06}.png'),
+                        nrow=nr,
+                        normalize=True
+                    )
 
             bar.set_description(
                 f"Epoch {epoch}/{opts.epochs} G: {glosses[-1]:.6f} D: {dlosses[-1]:.6f}"
@@ -139,8 +143,9 @@ def train(opts):
         }
         torch.save(state, os.path.join(opts.output, 'models', 'latest.pth'))
         if epoch % 5 == 0:
-            torch.save(state, os.path.join(
-                opts.output, 'models', f'{epoch:04}.pth'))
+            torch.save(
+                state, os.path.join(opts.output, 'models', f'{epoch:04}.pth')
+            )
         schedulerD.step()
         schedulerG.step()
 

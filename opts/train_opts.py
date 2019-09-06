@@ -4,6 +4,7 @@ import os
 import argparse
 import sys
 import logging
+from models.stylegan import StyleGanGenerator, StyleGanDiscriminator
 
 
 logger = logging.getLogger('Style GAN')
@@ -30,7 +31,7 @@ class TrainParser():
         )
         # 訓練反復回数
         parser.add_argument(
-            '--epochs',
+            '-n', '--epochs',
             metavar='NUMBER',
             help='Number of training iterations (default: %(default)s)',
             type=int,
@@ -38,7 +39,7 @@ class TrainParser():
         )
         # バッチサイズ
         parser.add_argument(
-            '--batch-size',
+            '-b', '--batch-size',
             metavar='INTEGER',
             help='Batch size (default: %(default)s)',
             type=int,
@@ -46,14 +47,14 @@ class TrainParser():
         )
         # 再開データの存在するディレクトリ(Noneで指定なし)
         parser.add_argument(
-            '--resume',
+            '-r', '--resume',
             metavar='[PATH|None]',
             help='Directory where resume data exists (None: Not specified) (default: %(default)s)',
             default=None
         )
         # 画像の解像度
         parser.add_argument(
-            '-s', '--image-size',
+            '-s', '--imsize',
             metavar='RESOLUTION',
             help='Image resolution (default: %(default)s)',
             type=int,
@@ -93,7 +94,7 @@ class TrainParser():
         )
         # 本物画像の弁別結果に対する勾配罰則係数
         parser.add_argument(
-            '--r1-gamma',
+            '--r1gamma',
             metavar='NON_NEGATIVE',
             help='Gradient penalty coefficient for discrimination result of real image (default: %(default)s)',
             type=float,
@@ -101,7 +102,7 @@ class TrainParser():
         )
         # 生成画像の弁別結果に対する勾配罰則係数
         parser.add_argument(
-            '--r2-gamma',
+            '--r2gamma',
             metavar='NON_NEGATIVE',
             help='Gradient penalty coefficient for the discrimination result of generated image (default: %(default)s)',
             type=float,
@@ -121,7 +122,7 @@ class TrainParser():
             metavar=('GEN_LR', 'DIS_LR'),
             help='Learning rate decay rate (Generator,Discriminator) (default: %(default)s)',
             nargs=2, type=float,
-            default=[.995, .995]
+            default=[.99, .99]
         )
         # Adam Optimizerのハイパーパラメータ
         parser.add_argument(
@@ -135,6 +136,26 @@ class TrainParser():
 
     def parse(self):
         opts = self.opts
+        load_state = False
+        state = None
+        if opts.resume is not None:
+            try:
+                path = opts.resume
+                state = torch.load(opts.resume)
+                logger.info(
+                    f"Resume Path: {opts.resume} (Start epoch: {state['start_epoch']})"
+                )
+                opts = state['opts']
+                opts.resume = path
+                load_state = True
+            except:
+                logger.warn(f"Failed to load resume model")
+                logger.info(f"Resume Path: None (Train from scratch)")
+        else:
+            logger.info(f"Resume Path: None (Train from scratch)")
+        self.use_gpu = opts.use_gpu
+        self.lr = opts.lr
+        self.lr_decay = opts.lr_decay
         self.device = 'cuda' if opts.use_gpu and torch.cuda.is_available() else 'cpu'
         logger.info(f"Use {self.device}")
         self.input = opts.input
@@ -157,26 +178,10 @@ class TrainParser():
         self.use_specnorm = opts.use_specnorm
         logger.info(f"Use Sepctral Norm: {self.use_specnorm}")
         self.resume = opts.resume
-        if self.resume:
-            logger.info(f"Resume Path: {self.resume}")
-        else:
-            logger.info(f"Resume Path  None (Train from scratch)")
-        lr = opts.lr
-        lr_decay = opts.lr_decay
-        if len(lr) >= 3:
-            logger.warn(
-                "The length of option 'lr' is invalid. The length should be 2 or 3"
-            )
-        if len(lr) == 1:
-            lr = lr * 2
+        lr = self.lr
+        lr_decay = self.lr_decay
         self.g_lr = lr[0]
         self.d_lr = lr[1]
-        if len(lr_decay) >= 3:
-            logger.warn(
-                "The length of option 'lr_decay' is invalid. The length should be 2 or 3"
-            )
-        if len(lr_decay) == 1:
-            lr_decay = lr_decay * 2
         self.g_lrdecay = lr_decay[0]
         self.d_lrdecay = lr_decay[1]
         logger.info(
@@ -189,13 +194,20 @@ class TrainParser():
         logger.info(
             f"Use Adam Optim (beta1: {self.betas[0]}, beta2: {self.betas[1]})"
         )
-        self.imsize = opts.image_size
+        self.imsize = opts.imsize
         supported_resolution = [2 ** i for i in range(6, 11)]
         if self.imsize not in supported_resolution:
             logger.critical(f"Unsupported Resolution: {self.imsize}")
             logger.info(f"support only: {supported_resolution}")
             exit(1)
         logger.info(f"Resolution: {self.imsize}")
-        self.r1gamma = opts.r1_gamma
-        self.r2gamma = opts.r2_gamma
+        self.r1gamma = opts.r1gamma
+        self.r2gamma = opts.r2gamma
         self.show_interval = opts.show_interval
+        self.G = StyleGanGenerator(self.imsize, self.use_specnorm, self.device)
+        self.D = StyleGanDiscriminator(self.imsize, self.use_specnorm)
+        self.start_epoch = 1
+        if load_state:
+            self.G.load_state_dict(state['G'])
+            self.D.load_state_dict(state['D'])
+            self.start_epoch = state['start_epoch']
