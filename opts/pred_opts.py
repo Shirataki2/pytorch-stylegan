@@ -59,30 +59,6 @@ class PredictPerser():
             type=bool,
             default=True
         )
-        # 画像の解像度
-        parser.add_argument(
-            '-s', '--image-size',
-            metavar='RESOLUTION',
-            help='Image resolution (default: %(default)s)',
-            type=int,
-            default=1024
-        )
-        # GPUを使うかどうか
-        parser.add_argument(
-            '--use-gpu',
-            metavar='BOOLEAN',
-            help='Whether to use GPU (default: %(default)s)',
-            type=bool,
-            default=True
-        )
-        # モデルにSpectral Normを課すかどうか
-        parser.add_argument(
-            '--use-specnorm',
-            metavar='BOOLEAN',
-            help='Whether to impose a Spectral Norm on the model (default: %(default)s)',
-            type=bool,
-            default=False
-        )
         self.opts = parser.parse_args()
         self.parse()
 
@@ -102,13 +78,3 @@ class PredictPerser():
             datetime.datetime.now().strftime("%Y%m%d%H%M%S")
         )
         os.makedirs(self.subdir, exist_ok=True)
-        self.imsize = opts.image_size
-        supported_resolution = [2 ** i for i in range(6, 11)]
-        if self.imsize not in supported_resolution:
-            logger.critical(f"Unsupported Resolution: {self.imsize}")
-            logger.info(f"support only: {supported_resolution}")
-            exit(1)
-        logger.info(f"Resolution: {self.imsize}")
-        self.use_specnorm = opts.use_specnorm
-        logger.info(f"Use Sepctral Norm: {self.use_specnorm}")
-        self.device = 'cuda' if opts.use_gpu and torch.cuda.is_available() else 'cpu'
