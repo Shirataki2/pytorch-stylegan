@@ -39,7 +39,7 @@ $ python train.py -i /path/to/training/images
 |`-o`|`--output`|`string`|出力先(デフォルト: `./result`)|
 |`-n`|`--epochs`|`int`|エポック数(デフォルト: `1000`)|
 |`-b`|`--batch-size`|`int`|バッチサイズ(デフォルト: 2)|
-|`-r`|`--resume`|`string|None`|訓練途中から再開する場合，モデルデータの保存されたパスを指定.初めから訓練する場合はNone(デフォルト: `None`)|
+|`-r`|`--resume`|`string or None`|訓練途中から再開する場合，モデルデータの保存されたパスを指定.初めから訓練する場合はNone(デフォルト: `None`)|
 ||`--no-gpu`|`(switch)`|GPU を使用しないようにしたい場合に指定する|
 ||`--use-specnorm`|`(switch)`|モデルにSpectral Normalizationを課す場合に指定する|
 ||`--critic-iters`|`int`|Generator1回の訓練に対するDiscriminatorの訓練回数の比(デフォルト: `5`)|
