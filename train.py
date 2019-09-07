@@ -35,11 +35,11 @@ def train(opts):
     loader = dataset.DataLoader(
         dataset=dataset.ImageDataset(
             [[opts.input]],
-            transform=transforms.Compose([
+            transforms=transforms.Compose([
                 trans.Resize((opts.imsize, opts.imsize)),
                 trans.ToTensor(),
                 trans.ToFloat(),
-                trans.Transpose(trans.BHWC2BCHW),
+                trans.Transpose(trans.BCHW2BHWC),
                 trans.Normalize()
             ])
         ),
