@@ -61,7 +61,6 @@ def draw_untruncated_result(G, opts, n=6):
         img = G(z, 1).detach().cpu()
         imgs.append(img.numpy()[0].transpose((1, 2, 0)))
     imgs = np.array(imgs)
-    imgs = (imgs - imgs.min()) / (imgs.max() - imgs.min())
     plt.figure(figsize=(n, n), dpi=256)
     gs = gridspec.GridSpec(n, n)
     gs.update(wspace=0, hspace=0, left=0, right=1, bottom=0, top=1)
@@ -69,7 +68,7 @@ def draw_untruncated_result(G, opts, n=6):
         ax = plt.subplot(g)
         ax.set_xticks([])
         ax.set_yticks([])
-        plt.imshow(img)
+        plt.imshow(normalize(img))
     plt.savefig(os.path.join(opts.subdir, 'untruncated_result.png'))
     logger.info("Done")
 
@@ -159,7 +158,6 @@ def draw_truncated_result(G, opts, n=6):
         img = G(z).detach().cpu()
         imgs.append(img.numpy()[0].transpose((1, 2, 0)))
     imgs = np.array(imgs)
-    imgs = (imgs - imgs.min()) / (imgs.max() - imgs.min())
     plt.figure(figsize=(n, n), dpi=256)
     gs = gridspec.GridSpec(n, n)
     gs.update(wspace=0, hspace=0, left=0, right=1, bottom=0, top=1)
@@ -167,7 +165,7 @@ def draw_truncated_result(G, opts, n=6):
         ax = plt.subplot(g)
         ax.set_xticks([])
         ax.set_yticks([])
-        plt.imshow(img)
+        plt.imshow((img - img.min()) / (img.max() - img.min()))
     plt.savefig(os.path.join(opts.subdir, 'truncated_result.png'))
     logger.info("Done")
 
