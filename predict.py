@@ -13,6 +13,7 @@ import tqdm
 import os
 from opts import pred_opts
 import warnings
+import matplotlib.cbook
 warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
 
 logger = logging.getLogger('Style GAN')
