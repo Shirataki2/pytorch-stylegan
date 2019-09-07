@@ -41,11 +41,11 @@ def load_generator(opts):
         G = StyleGanGenerator(
             train_opts.imsize,
             train_opts.use_specnorm,
-            train_opts.device
+            opts.device
         )
         G.load_state_dict(state['G'])
-        G.to(train_opts.device)
-        opts.device = train_opts.device
+        G.to(opts.device)
+        opts.device = opts.device
         opts.imsize = train_opts.imsize
     else:
         logger.error("Model Files cannot Load")
@@ -58,7 +58,7 @@ def draw_untruncated_result(G, opts, n=6):
     imgs = []
     logger.info("Generate Untruncated Images...")
     for z in zs:
-        img = G(z).detach().cpu()
+        img = G(z, 1).detach().cpu()
         imgs.append(img.numpy()[0].transpose((1, 2, 0)))
     imgs = np.array(imgs)
     imgs = (imgs - imgs.min()) / (imgs.max() - imgs.min())
@@ -151,23 +151,13 @@ def draw_noise_detail_result(G, opts, N_sample=5, valiation=4):
     logger.info("Done")
 
 
-def draw_truncated_result(G, opts, n=6, psi=.7, off=8):
+def draw_truncated_result(G, opts, n=6):
     zs = [torch.randn(1, 512).to(opts.device) for i in range(n**2)]
     imgs = []
-    logger.info("Generate Truncate Trick Images...")
-    M = G.mapper
-    S = G.synth
+    logger.info("Generate Truncated Images...")
     for z in zs:
-        w, N = M(z)
-        w.unsqueeze(1)
-        w.expand(w.size(0), int(N), -1)
-        coefs = torch.ones((1, N, 1)).to(opts.device)
-        for i in range(int(N)):
-            if i < off:
-                coefs[:, i, :] *= psi
-        w = w + coefs
-        img = S(w).detach().cpu().numpy()[0].transpose((1, 2, 0))
-        imgs.append(img)
+        img = G(z).detach().cpu()
+        imgs.append(img.numpy()[0].transpose((1, 2, 0)))
     imgs = np.array(imgs)
     imgs = (imgs - imgs.min()) / (imgs.max() - imgs.min())
     plt.figure(figsize=(n, n), dpi=256)

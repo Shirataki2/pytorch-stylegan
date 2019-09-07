@@ -195,10 +195,14 @@ class StyleGanGenerator(nn.Module):
         self.synth = GeneratorSynthesis(
             w_dim, device, use_specnorm, resolution)
 
-    def forward(self, z):
+    def forward(self, z, phi=.7, cutoff=8):
         w, N = self.mapper(z)
         w = w.unsqueeze(1)
         w = w.expand(-1, int(N), -1)
+        coefs = torch.ones([1, N, 1]).to(z.device)
+        for i in range(min(cutoff, N)):
+            coefs[:, i, :] *= phi
+        w = w * coefs
         o = self.synth(w)
         return o
 

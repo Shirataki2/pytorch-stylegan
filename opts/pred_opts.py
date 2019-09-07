@@ -27,12 +27,20 @@ class PredictPerser():
             type=str,
             default='./generate/'
         )
+        parser.add_argument(
+            '--no-gpu',
+            help='Use CPU only',
+            action='store_true',
+        )
         self.opts = parser.parse_args()
         self.parse()
 
     def parse(self):
         opts = self.opts
         self.path = opts.model_file
+        self.use_gpu = not opts.no_gpu
+        self.device = 'cuda' if self.use_gpu and torch.cuda.is_available() else 'cpu'
+        logger.info(f"Use {self.device.upper()}")
         logger.info(f"Model File  : {self.path}")
         self.output = opts.output_path
         logger.info(f"Output Path : {self.output}")

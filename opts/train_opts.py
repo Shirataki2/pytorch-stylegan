@@ -19,7 +19,7 @@ class TrainParser():
             metavar='DIRECTORY',
             help='Directory with input images (default: %(default)s)',
             type=str,
-            default='./data/danbooru'
+            required=True
         )
         # 出力先
         parser.add_argument(
@@ -63,13 +63,13 @@ class TrainParser():
         # GPUを使うかどうか
         parser.add_argument(
             '--no-gpu',
-            help='Use CPU only (default: %(default)s)',
-            action='store_false',
+            help='Use CPU only',
+            action='store_true',
         )
         # モデルにSpectral Normを課すかどうか
         parser.add_argument(
             '--use-specnorm',
-            help='Whether to impose a Spectral Norm on the model (default: %(default)s)',
+            help='Whether to impose a Spectral Norm on the model',
             action='store_true',
         )
         # 生成器1回の訓練に対する弁別器の訓練回数の比
@@ -153,7 +153,7 @@ class TrainParser():
         self.lr = opts.lr
         self.lr_decay = opts.lr_decay
         self.device = 'cuda' if self.use_gpu and torch.cuda.is_available() else 'cpu'
-        logger.info(f"Use {self.device}")
+        logger.info(f"Use {self.device.upper()}")
         self.input = opts.input
         logger.info(f"Input  Folder: {self.input}")
         self.output = opts.output
