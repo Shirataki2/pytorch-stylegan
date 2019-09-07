@@ -1,0 +1,3 @@
+[submodule "submodules/Torchvision-sunner"]
+	path = submodules/Torchvision-sunner
+	url = https://github.com/SunnerLi/Torchvision_sunner
