@@ -14,6 +14,10 @@ CPUでも動作可能ですが非常に時間がかかります．
 - RAM: 128GB
 - CPU: Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz
 - GPU: Tesla P100-PCIE-16GB
+- CUDA: 10.0
+- CUDNN: 7.5
+- PyTorch: 1.1.0
+- Torchvision: 0.2.2
 - BatchSize: 1024x1024: 2, 256x256: 9
 
 ## 学習
