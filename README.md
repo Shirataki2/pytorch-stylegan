@@ -38,8 +38,9 @@ $ python train.py -i /path/to/training/images
 |`-i`|`--input`|`string`|(必須)入力画像ディレクトリへのパス|
 |`-o`|`--output`|`string`|出力先(デフォルト: `./result`)|
 |`-n`|`--epochs`|`int`|エポック数(デフォルト: `1000`)|
-|`-b`|`--batch-size`|`int`|バッチサイズ(デフォルト: 2)|
+|`-b`|`--batch-size`|`int`|バッチサイズ(デフォルト: `2`)|
 |`-r`|`--resume`|`string or None`|途中から再開する際にモデルデータの保存されたパスを指定.(デフォルト: `None`)|
+|`-s`|`--imsize`|`int`|画像サイズ(`32~1024`の2の累乗のみ指定可)(デフォルト: `1024`)|
 ||`--no-gpu`|`(switch)`|GPU を使用しないようにしたい場合に指定する|
 ||`--use-specnorm`|`(switch)`|モデルにSpectral Normalizationを課す場合に指定する|
 ||`--critic-iters`|`int`|Generator1回の訓練に対するDiscriminatorの訓練回数の比(デフォルト: `5`)|
