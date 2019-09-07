@@ -135,13 +135,18 @@ def draw_noise_detail_result(G, opts, N_sample=5, valiation=4):
     logger.info("Generate Noise Detail Images...")
     plt.figure(figsize=(valiation, N_sample), dpi=256)
     gs = gridspec.GridSpec(N_sample, valiation)
+    gs.update(wspace=0, hspace=0, left=0, right=1, bottom=0, top=1)
+    for g in gs:
+        ax = plt.subplot(g)
+        ax.set_xticks([])
+        ax.set_yticks([])
     for row in range(N_sample):
         latents = torch.randn(1, 512).to(opts.device).repeat((valiation, 1))
         images = G(latents).detach().cpu().numpy()
         for col, img in enumerate(images):
             ax = plt.subplot(gs[row*valiation + col])
             ax.imshow(normalize(img.transpose((1, 2, 0))))
-    plt.savefig(os.path.join(opts.subdir, 'mixing_result.png'))
+    plt.savefig(os.path.join(opts.subdir, 'noise_result.png'))
     logger.info("Done")
 
 
@@ -179,8 +184,6 @@ def draw_truncated_result(G, opts, n=6, psi=.7, off=8):
 if __name__ == '__main__':
     opts = pred_opts.PredictPerser()
     G = load_generator(opts)
-    if opts.draw_trunc:
-        draw_truncated_result(G, opts)
     if opts.draw_pred:
         draw_untruncated_result(G, opts)
     if opts.draw_mix:
