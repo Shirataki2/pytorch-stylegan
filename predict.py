@@ -98,7 +98,7 @@ def draw_style_mixing_result(
         int(math.ceil(dst_num_layers * style_split[1]))
     )
     fine = range(
-        int(math.ceil(dst_num_layers * style_split[0])),
+        int(math.ceil(dst_num_layers * style_split[1])),
         dst_num_layers
     )
     d = {
