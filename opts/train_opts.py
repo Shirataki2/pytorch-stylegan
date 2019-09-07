@@ -62,19 +62,15 @@ class TrainParser():
         )
         # GPUを使うかどうか
         parser.add_argument(
-            '--use-gpu',
-            metavar='BOOLEAN',
-            help='Whether to use GPU (default: %(default)s)',
-            type=bool,
-            default=True
+            '--no-gpu',
+            help='Use CPU only (default: %(default)s)',
+            action='store_false',
         )
         # モデルにSpectral Normを課すかどうか
         parser.add_argument(
             '--use-specnorm',
-            metavar='BOOLEAN',
             help='Whether to impose a Spectral Norm on the model (default: %(default)s)',
-            type=bool,
-            default=False
+            action='store_true',
         )
         # 生成器1回の訓練に対する弁別器の訓練回数の比
         parser.add_argument(
@@ -153,10 +149,10 @@ class TrainParser():
                 logger.info(f"Resume Path: None (Train from scratch)")
         else:
             logger.info(f"Resume Path: None (Train from scratch)")
-        self.use_gpu = opts.use_gpu
+        self.use_gpu = not opts.no_gpu
         self.lr = opts.lr
         self.lr_decay = opts.lr_decay
-        self.device = 'cuda' if opts.use_gpu and torch.cuda.is_available() else 'cpu'
+        self.device = 'cuda' if self.use_gpu and torch.cuda.is_available() else 'cpu'
         logger.info(f"Use {self.device}")
         self.input = opts.input
         logger.info(f"Input  Folder: {self.input}")

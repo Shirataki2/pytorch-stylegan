@@ -185,11 +185,7 @@ def draw_truncated_result(G, opts, n=6, psi=.7, off=8):
 if __name__ == '__main__':
     opts = pred_opts.PredictPerser()
     G = load_generator(opts)
-    if opts.draw_pred:
-        draw_untruncated_result(G, opts)
-    if opts.draw_mix:
-        draw_style_mixing_result(G, opts, 5)
-    if opts.draw_noise:
-        draw_noise_detail_result(G, opts)
-    if opts.draw_trunc:
-        draw_truncated_result(G, opts)
+    draw_untruncated_result(G, opts)
+    draw_style_mixing_result(G, opts, 5)
+    draw_noise_detail_result(G, opts)
+    draw_truncated_result(G, opts)
