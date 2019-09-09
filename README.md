@@ -37,6 +37,52 @@ $ python train.py -i /path/to/training/images
 
 ### オプション引数
 
+```shell
+usage: train.py [-h] -i DIRECTORY [-o DIRECTORY] [-n NUMBER] [-b INTEGER]
+                [-r [PATH|None]] [-s RESOLUTION] [--no-gpu] [--use-specnorm]
+                [--critic-iters INTEGER] [--show-interval INTEGER]
+                [--r1gamma NON_NEGATIVE] [--r2gamma NON_NEGATIVE]
+                [--lr GEN_LR DIS_LR] [--lr-decay GEN_LR DIS_LR]
+                [--betas BETA1 BETA2]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -i DIRECTORY, --input DIRECTORY
+                        Directory with input images (default: None)
+  -o DIRECTORY, --output DIRECTORY
+                        Output destination (default: ./result/)
+  -n NUMBER, --epochs NUMBER
+                        Number of training iterations (default: 1000)
+  -b INTEGER, --batch-size INTEGER
+                        Batch size (default: 2)
+  -r [PATH|None], --resume [PATH|None]
+                        Directory where resume data exists (None: Not
+                        specified) (default: None)
+  -s RESOLUTION, --imsize RESOLUTION
+                        Image resolution (default: 1024)
+  --no-gpu              Use CPU only
+  --use-specnorm        Whether to impose a Spectral Norm on the model
+  --critic-iters INTEGER
+                        Ratio of discriminator training times to one generator
+                        training (default: 5)
+  --show-interval INTEGER
+                        Progress output interval (default: 250)
+  --r1gamma NON_NEGATIVE
+                        Gradient penalty coefficient for discrimination result
+                        of real image (default: 0.0)
+  --r2gamma NON_NEGATIVE
+                        Gradient penalty coefficient for the discrimination
+                        result of generated image (default: 0.0)
+  --lr GEN_LR DIS_LR    Learning rate (Generator,Discriminator) (default:
+                        [0.0002434, 0.0002434])
+  --lr-decay GEN_LR DIS_LR
+                        Learning rate decay rate (Generator,Discriminator)
+                        (default: [0.9, 0.9])
+  --betas BETA1 BETA2   Adam Optimizer hyperparameters (default: [0.0, 0.99])
+```
+
+**説明**
+
 |引数(短)|引数(長)|型|説明|
 |-:|-:|-:|:-|
 |`-i`|`--input`|`string`|(必須)入力画像ディレクトリへのパス|
@@ -66,6 +112,21 @@ $ python predict.py -f ./result/models/latest.pth
 ```
 
 ### オプション引数
+
+```shell
+usage: predict.py [-h] [-f PTH_FILE] [-o PATH] [--no-gpu]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -f PTH_FILE, --model-file PTH_FILE
+                        Path to trained model (default:
+                        ./result/models/latest.pth)
+  -o PATH, --output-path PATH
+                        Output root path (default: ./generate/)
+  --no-gpu              Use CPU only
+```
+
+**説明**
 
 |引数(短)|引数(長)|型|説明|
 |-:|-:|-:|:-|
