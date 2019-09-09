@@ -177,7 +177,7 @@ class GeneratorSynthesis(nn.Module):
         x = x + self.bias.view(1, -1, 1, 1)
         x = self.adaIn1(x, self.noise_input[0], w[:, 0])
         x = self.conv1(x)
-        x = self.adaIn2(x, self.noise_input[0], w[:, 0])
+        x = self.adaIn2(x, self.noise_input[1], w[:, 1])
         for layer in self.synth:
             x = layer(x, w)
         x = self.channel_shrinkage(x)

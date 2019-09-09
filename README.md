@@ -49,11 +49,11 @@ $ python train.py -i /path/to/training/images
 ||`--use-specnorm`|`(switch)`|モデルにSpectral Normalizationを課す場合に指定する|
 ||`--critic-iters`|`int`|Generator1回の訓練に対するDiscriminatorの訓練回数の比(デフォルト: `5`)|
 ||`--show-interval`|`int`|進捗の出力間隔(デフォルト: `250`)|
-||`--r1gamma`|`float(>0)`|本物画像と識別した場合に対する勾配への罰則係数(デフォルト: `10`)|
+||`--r1gamma`|`float(>0)`|本物画像と識別した場合に対する勾配への罰則係数(デフォルト: `0`)|
 ||`--r2gamma`|`float(>0)`|生成画像と識別した場合に対する勾配への罰則係数(デフォルト: `0`)|
-||`--lr`|`float float`|学習率(デフォルト: `2.434e-5 2.434e-5`)|
-||`--lr-decay`|`float float`|1Epochあたりの学習率の減衰率(デフォルト: `0.99 0.99`)|
-||`--betas`|`float float`|Adam Optimizerのハイパーパラメータ(デフォルト: `0.5 0.99`)|
+||`--lr`|`float float`|学習率(デフォルト: `2.434e-4 2.434e-4`)|
+||`--lr-decay`|`float float`|1Epochあたりの学習率の減衰率(デフォルト: `0.9 0.9`)|
+||`--betas`|`float float`|Adam Optimizerのハイパーパラメータ(デフォルト: `0 0.99`)|
 
 ## 生成
 

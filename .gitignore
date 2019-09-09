@@ -8,3 +8,4 @@ nohup.out
 /result/
 /generate/
 /tmp
+*.pth

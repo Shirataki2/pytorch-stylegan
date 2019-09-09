@@ -94,7 +94,7 @@ class TrainParser():
             metavar='NON_NEGATIVE',
             help='Gradient penalty coefficient for discrimination result of real image (default: %(default)s)',
             type=float,
-            default=10.
+            default=0.
         )
         # 生成画像の弁別結果に対する勾配罰則係数
         parser.add_argument(
@@ -110,7 +110,7 @@ class TrainParser():
             metavar=('GEN_LR', 'DIS_LR'),
             nargs=2, type=float,
             help='Learning rate (Generator,Discriminator) (default: %(default)s)',
-            default=[2.434e-5, 2.434e-5]
+            default=[2.434e-4, 2.434e-4]
         )
         # 学習率の減衰率(Generator,Discriminator)
         parser.add_argument(
@@ -118,14 +118,14 @@ class TrainParser():
             metavar=('GEN_LR', 'DIS_LR'),
             help='Learning rate decay rate (Generator,Discriminator) (default: %(default)s)',
             nargs=2, type=float,
-            default=[.99, .99]
+            default=[.9, .9]
         )
         # Adam Optimizerのハイパーパラメータ
         parser.add_argument(
             '--betas', nargs=2,
             metavar=('BETA1', 'BETA2'),
             help='Adam Optimizer hyperparameters (default: %(default)s)',
-            type=float, default=[.5, .99]
+            type=float, default=[.0, .99]
         )
         self.opts = parser.parse_args()
         self.parse()

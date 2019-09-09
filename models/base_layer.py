@@ -151,7 +151,8 @@ class Upscale2d(nn.Module):
             x = x * self.g
         if self.f > 1:
             s = x.shape
-            x = x.view(s[0], s[1], s[2], 1, s[3],
-                       1).expand(-1, -1, -1, self.f, -1, self.f)
+            x = x.view(
+                s[0], s[1], s[2], 1, s[3], 1
+            ).repeat(1, 1, 1, self.f, 1, self.f)
             x = x.contiguous().view(s[0], s[1], self.f * s[2], self.f * s[3])
         return x
