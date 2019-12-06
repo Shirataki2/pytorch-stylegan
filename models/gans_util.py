@@ -9,7 +9,7 @@ class ApplyNoise(nn.Module):
         super().__init__()
         self.weight = nn.Parameter(torch.zeros(channels))
 
-    def forward(self, x, noise=None):
+    def forward(self, x, noise):
         if noise is None:
             noise = torch.randn(
                 x.size(0),

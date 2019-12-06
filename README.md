@@ -38,47 +38,50 @@ $ python train.py -i /path/to/training/images
 ### オプション引数
 
 ```shell
-usage: train.py [-h] -i DIRECTORY [-o DIRECTORY] [-n NUMBER] [-b INTEGER]
-                [-r [PATH|None]] [-s RESOLUTION] [--no-gpu] [--use-specnorm]
-                [--critic-iters INTEGER] [--show-interval INTEGER]
-                [--r1gamma NON_NEGATIVE] [--r2gamma NON_NEGATIVE]
-                [--lr GEN_LR DIS_LR] [--lr-decay GEN_LR DIS_LR]
-                [--betas BETA1 BETA2]
+usage: train-stylegan.py [-h] -i DIRECTORY [-o DIRECTORY] [-n NUMBER]
+                         [-b INTEGER] [-r [PATH|None]] [-s RESOLUTION]
+                         [--no-gpu] [--use-specnorm] [--critic-iters INTEGER]
+                         [--show-interval INTEGER] [--r1gamma NON_NEGATIVE]
+                         [--r2gamma NON_NEGATIVE] [--lr GEN_LR DIS_LR]
+                         [--lr-decay GEN_LR DIS_LR] [--blur k00 k01 k02]
+                         [--betas BETA1 BETA2]
 
 optional arguments:
   -h, --help            show this help message and exit
   -i DIRECTORY, --input DIRECTORY
-                        Directory with input images (default: None)
+                        Directory with input images
   -o DIRECTORY, --output DIRECTORY
                         Output destination (default: ./result/)
   -n NUMBER, --epochs NUMBER
                         Number of training iterations (default: 1000)
   -b INTEGER, --batch-size INTEGER
-                        Batch size (default: 2)
+                        Batch size (default: 9)
   -r [PATH|None], --resume [PATH|None]
                         Directory where resume data exists (None: Not
                         specified) (default: None)
   -s RESOLUTION, --imsize RESOLUTION
-                        Image resolution (default: 1024)
+                        Image resolution (default: 256)
   --no-gpu              Use CPU only
   --use-specnorm        Whether to impose a Spectral Norm on the model
   --critic-iters INTEGER
                         Ratio of discriminator training times to one generator
                         training (default: 5)
   --show-interval INTEGER
-                        Progress output interval (default: 250)
+                        Progress output interval (default: 200)
   --r1gamma NON_NEGATIVE
                         Gradient penalty coefficient for discrimination result
-                        of real image (default: 0.0)
+                        of real image (default: 10.0)
   --r2gamma NON_NEGATIVE
                         Gradient penalty coefficient for the discrimination
                         result of generated image (default: 0.0)
   --lr GEN_LR DIS_LR    Learning rate (Generator,Discriminator) (default:
-                        [0.0002434, 0.0002434])
+                        [2e-5, 2e-5])
   --lr-decay GEN_LR DIS_LR
                         Learning rate decay rate (Generator,Discriminator)
-                        (default: [0.9, 0.9])
-  --betas BETA1 BETA2   Adam Optimizer hyperparameters (default: [0.0, 0.99])
+                        (default: [0.99, 0.99])
+  --blur k00 k01 k02    Lowpass kernel (all negative: disable) (default: [-1,
+                        -1, -1])
+  --betas BETA1 BETA2   Adam Optimizer hyperparameters (default: [0.5, 0.999])
 ```
 
 **説明**
@@ -88,18 +91,19 @@ optional arguments:
 |`-i`|`--input`|`string`|(必須)入力画像ディレクトリへのパス|
 |`-o`|`--output`|`string`|出力先(デフォルト: `./result`)|
 |`-n`|`--epochs`|`int`|エポック数(デフォルト: `1000`)|
-|`-b`|`--batch-size`|`int`|バッチサイズ(デフォルト: `2`)|
+|`-b`|`--batch-size`|`int`|バッチサイズ(デフォルト: `9`)|
 |`-r`|`--resume`|`string or None`|途中から再開する際にモデルデータの保存されたパスを指定.(デフォルト: `None`)|
-|`-s`|`--imsize`|`int`|画像サイズ(`32~1024`の2の累乗のみ指定可)(デフォルト: `1024`)|
+|`-s`|`--imsize`|`int`|画像サイズ(`32~1024`の2の累乗のみ指定可)(デフォルト: `256`)|
 ||`--no-gpu`|`(switch)`|GPU を使用しないようにしたい場合に指定する|
 ||`--use-specnorm`|`(switch)`|モデルにSpectral Normalizationを課す場合に指定する|
 ||`--critic-iters`|`int`|Generator1回の訓練に対するDiscriminatorの訓練回数の比(デフォルト: `5`)|
-||`--show-interval`|`int`|進捗の出力間隔(デフォルト: `250`)|
-||`--r1gamma`|`float(>0)`|本物画像と識別した場合に対する勾配への罰則係数(デフォルト: `0`)|
+||`--show-interval`|`int`|進捗の出力間隔(デフォルト: `200`)|
+||`--r1gamma`|`float(>0)`|本物画像と識別した場合に対する勾配への罰則係数(デフォルト: `10`)|
 ||`--r2gamma`|`float(>0)`|生成画像と識別した場合に対する勾配への罰則係数(デフォルト: `0`)|
-||`--lr`|`float float`|学習率(デフォルト: `2.434e-4 2.434e-4`)|
-||`--lr-decay`|`float float`|1Epochあたりの学習率の減衰率(デフォルト: `0.9 0.9`)|
-||`--betas`|`float float`|Adam Optimizerのハイパーパラメータ(デフォルト: `0 0.99`)|
+||`--lr`|`float float`|学習率(デフォルト: `2e-5 2e-5`)|
+||`--lr-decay`|`float float`|1Epochあたりの学習率の減衰率(デフォルト: `0.99 0.99`)|
+||`--blur`|`float float float`|**Not Implemented**|
+||`--betas`|`float float`|Adam Optimizerのハイパーパラメータ(デフォルト: `0.5 0.999`)|
 
 ## 生成
 
@@ -114,7 +118,7 @@ $ python predict.py -f ./result/models/latest.pth
 ### オプション引数
 
 ```shell
-usage: predict.py [-h] [-f PTH_FILE] [-o PATH] [--no-gpu]
+usage: predict-stylegan.py [-h] [-f PTH_FILE] [-o PATH] [--no-gpu]
 
 optional arguments:
   -h, --help            show this help message and exit

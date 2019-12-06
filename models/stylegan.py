@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-from models.base_layer import FullyConnect, Conv2d, DepthwiseConv2d, InstanceNormalization, Upscale2d, PixelNormalization
+from models.base_layer import FullyConnect, Conv2d, Blur2d, InstanceNormalization, Upscale2d, PixelNormalization
 from models.gans_util import ApplyNoise, ApplyStyle
 
 
@@ -33,10 +33,11 @@ class LayerMixtureEpilogue(nn.Module):
             self.apply_style = ApplyStyle(dlatent_size, channels, use_wscale)
         else:
             self.apply_style = None
+        self.actv = nn.LeakyReLU(.2)
 
     def forward(self, x, noise, dlatent_slice=None):
         if self.apply_noise:
-            x = self.apply_noise(x)
+            x = self.apply_noise(x, noise)
         for layer in self.layers:
             x = layer(x)
         if self.apply_style:
@@ -58,11 +59,11 @@ class GeneratorBlock(nn.Module):
         use_styles=True,
         lowpass_filter=None,
         scale_factor=2,
-        fmap=lambda x: min(int(2**13 / (2.**x)), 512)
+        fmap=lambda self: min(int(2**13 / (2.**self)), 512)
     ):
         super().__init__()
         self.res = resolution
-        self.blur = DepthwiseConv2d(lowpass_filter)
+        self.blur = Blur2d(lowpass_filter)
         self.noise_input = noise_input
         if self.res > 6:
             self.upsample = nn.ConvTranspose2d(
@@ -99,6 +100,7 @@ class GeneratorMapper(nn.Module):
         w_latent_dim=512,
         normalize=True,
         use_wscale=True,
+        N_mapping_layer=8,
         lrmul=.01,
         gain=2**.5
     ):
@@ -107,7 +109,7 @@ class GeneratorMapper(nn.Module):
         self.fc = nn.Sequential(
             FullyConnect(self.zdim, w_latent_dim, gain,
                          use_wscale, lrmul),
-            *([FullyConnect(w_latent_dim, w_latent_dim, gain, use_wscale, lrmul)] * 7)
+            *([FullyConnect(w_latent_dim, w_latent_dim, gain, use_wscale, lrmul)] * (N_mapping_layer - 1))
         )
         self.normalize = normalize
         self.num_layers = int(np.log2(resolution)) * 2 - 2
@@ -127,7 +129,7 @@ class GeneratorSynthesis(nn.Module):
         device,
         use_specnorm,
         resolution=1024,
-        fmap=lambda x: min(int(2**13 / (2.**x)), 512),
+        fmap=lambda self: min(int(2**13 / (2.**self)), 512),
         num_channels=3,
         f=None,
         use_wscale=True,
@@ -143,14 +145,13 @@ class GeneratorSynthesis(nn.Module):
         self.noise_input = [
             torch.randn([1, 1, 2**(i//2+2), 2**(i//2+2)]).to(device) for i in range(self.num_layers)
         ]
-        self.blur = DepthwiseConv2d(f)
+        self.blur = Blur2d(f)
         self.channel_shrinkage = Conv2d(
             fmap(N-2), fmap(N), 3, use_wscale=use_wscale
         )
         if use_specnorm:
             self.channel_shrinkage = nn.utils.spectral_norm(
                 self.channel_shrinkage)
-        self.torgb = Conv2d(fmap(N), num_channels, 1, 1, use_wscale=use_wscale)
         self.adaIn1 = LayerMixtureEpilogue(
             fmap(1), w, use_wscale, use_noise, use_pixel_norm, use_instanse_norm, use_styles
         )
@@ -164,29 +165,60 @@ class GeneratorSynthesis(nn.Module):
         )
         self.synth = [
             GeneratorBlock(r, use_wscale, use_noise, use_pixel_norm,
-                           use_instanse_norm, use_specnorm, self.noise_input, dlatent_size)
+                           use_instanse_norm, use_specnorm, self.noise_input, dlatent_size, lowpass_filter=f)
             for r in range(3, N + 1)
         ]
+        self.torgb_first = Conv2d(fmap(1), num_channels, 1, 1,
+                                  use_wscale=use_wscale)
+        self.torgbs = [Conv2d(fmap(r), num_channels, 1, 1,
+                              use_wscale=use_wscale) for r in range(3, N + 1)]
+        self.torgb = Conv2d(fmap(N), num_channels, 1, 1, use_wscale=use_wscale)
         self.synth = nn.ModuleList(self.synth)
+        self.torgbs = nn.ModuleList(self.torgbs)
         self.const_in = nn.Parameter(torch.ones(1, fmap(1), 4, 4))
         self.bias = nn.Parameter(torch.ones(fmap(1)))
+        self.register_buffer("level", torch.tensor(1, dtype=torch.int32))
 
-    def forward(self, dlatent):
+    def forward(self, dlatent, structure='no-grow', alpha=None):
         w = dlatent
-        x = self.const_in.expand(w.size(0), -1, -1, -1)
-        x = x + self.bias.view(1, -1, 1, 1)
-        x = self.adaIn1(x, self.noise_input[0], w[:, 0])
-        x = self.conv1(x)
-        x = self.adaIn2(x, self.noise_input[1], w[:, 1])
-        for layer in self.synth:
-            x = layer(x, w)
-        x = self.channel_shrinkage(x)
-        o = self.torgb(x)
+        if structure == 'no-grow':
+            x = self.const_in.expand(w.size(0), -1, -1, -1)
+            x = x + self.bias.view(1, -1, 1, 1)
+            x = self.adaIn1(x, self.noise_input[0], w[:, 0])
+            x = self.conv1(x)
+            x = self.adaIn2(x, self.noise_input[1], w[:, 1])
+            for layer in self.synth:
+                x = layer(x, w)
+            x = self.channel_shrinkage(x)
+            o = self.torgb(x)
+        elif structure == 'grow':
+            level = self.level.item()
+            x = self.const_in.expand(w.size(0), -1, -1, -1)
+            x = x + self.bias.view(1, -1, 1, 1)
+            x = self.adaIn1(x, self.noise_input[0], w[:, 0])
+            x = self.conv1(x)
+            x = self.adaIn2(x, self.noise_input[1], w[:, 1])
+            if level > 1:
+                x = self.torgb_first(x)
+                return x
+            for i in range(1, level-1):
+                x = self.synth[i](x, w)
+            x2 = x
+            x2 = self.synth[level - 1](x2, w)
+            x2 = self.torgbs[level - 1](x2)
+            if alpha == 1:
+                x = x2
+            else:
+                x1 = self.torgbs[level - 2](x)
+                x1 = F.interpolate(x1, scale_factor=2, mode="bilinear")
+                o = torch.lerp(x1, x2, alpha)
+        else:
+            assert False
         return o
 
 
 class StyleGanGenerator(nn.Module):
-    def __init__(self, resolution, use_specnorm, device, z_dim=512, w_dim=512, **kwargs):
+    def __init__(self, resolution, use_specnorm, device, z_dim=512, w_dim=512, f=None, **kwargs):
         super().__init__()
         self.zdim = z_dim
         self.wdim = w_dim
@@ -195,15 +227,23 @@ class StyleGanGenerator(nn.Module):
         self.synth = GeneratorSynthesis(
             w_dim, device, use_specnorm, resolution)
 
-    def forward(self, z, phi=.7, cutoff=8):
+    def forward(self, z, phi=.7, cutoff=8, structure='no-grow', alpha=None, miximg_prop=.9):
         w, N = self.mapper(z)
         w = w.unsqueeze(1)
         w = w.expand(-1, int(N), -1)
+        level = self.synth.level.item()
+        if level > 2:
+            z2 = torch.randn_like(z)
+            w2 = self.mapper(z2)
+            for idx in range(z.size(0)):
+                if np.random.uniform(0, 1) < miximg_prop:
+                    cp = np.random.randint(1, N)
+                    w[idx, cp:] = w2[idx]
         coefs = torch.ones([1, N, 1]).to(z.device)
         for i in range(min(cutoff, N)):
             coefs[:, i, :] *= phi
         w = w * coefs
-        o = self.synth(w)
+        o = self.synth(w, structure=structure, alpha=alpha)
         return o
 
 
@@ -215,7 +255,7 @@ class StyleGanDiscriminator(nn.Module):
         f=None,
         num_channels=3,
         b=2**13,
-        fm=lambda x, b: min(int(b / (2.**x)), 512)
+        fm=lambda self, b: min(int(b / (2.**self)), 512)
     ):
         super().__init__()
         N = int(np.log2(resolution))
@@ -228,7 +268,7 @@ class StyleGanDiscriminator(nn.Module):
             else:
                 return nn.Conv2d(inc, outc, k, stride=s, padding=p)
         self.fromrgb = conv(num_channels, fmap(N - 1), 1)
-        self.blur = DepthwiseConv2d(f)
+        self.blur = Blur2d(f)
 
         self.downlayers = []
         self.convlayers = []
@@ -249,14 +289,47 @@ class StyleGanDiscriminator(nn.Module):
         self.lastconv = conv(fmap(2), fmap(1), 3, p=(1, 1))
         self.fc1 = nn.Linear(b, fmap(0))
         self.fc2 = nn.Linear(fmap(0), 1)
+        self.register_buffer("level", torch.tensor(1, dtype=torch.int32))
 
-    def forward(self, img):
-        x = F.leaky_relu(self.fromrgb(img), 0.2, inplace=True)
-        for c, down in zip(self.convlayers, self.downlayers):
-            x = F.leaky_relu(c(x), 0.2, inplace=True)
-            x = F.leaky_relu(down(self.blur(x)), 0.2, inplace=True)
-        x = F.leaky_relu(self.lastconv(x), 0.2, inplace=True)
-        x = x.view(x.size(0), -1)
-        x = F.leaky_relu(self.fc1(x), 0.2, inplace=True)
-        x = F.leaky_relu(self.fc2(x), 0.2, inplace=True)
-        return x
+    def forward(self, img, structure='no-grow', alpha=None):
+        if structure == 'no-grow':
+            x = F.leaky_relu(self.fromrgb(img), 0.2, inplace=True)
+            for c, down in zip(self.convlayers, self.downlayers):
+                x = F.leaky_relu(c(x), 0.2, inplace=True)
+                x = F.leaky_relu(down(self.blur(x)), 0.2, inplace=True)
+            x = F.leaky_relu(self.lastconv(x), 0.2, inplace=True)
+            x = x.view(x.size(0), -1)
+            x = F.leaky_relu(self.fc1(x), 0.2, inplace=True)
+            o = F.leaky_relu(self.fc2(x), 0.2, inplace=True)
+        elif structure == 'grow':
+            level = self.level.item()
+            if level == 1:
+                x = F.leaky_relu(self.fromrgbs[-1](x), 0.2, inplace=True)
+                x = F.leaky_relu(self.convlayers[-1](x), 0.2, inplace=True)
+                x = self.downlayers[-1](x)
+                x = F.leaky_relu(self.lastconv(x), 0.2, inplace=True)
+                x = x.view(x.size(0), -1)
+                x = F.leaky_relu(self.fc1(x), 0.2, inplace=True)
+                o = F.leaky_relu(self.fc2(x), 0.2, inplace=True)
+            else:
+                x2 = self.fromrgbs[-level](x)
+                x2 = F.leaky_relu(self.convlayers[-1](x2), 0.2, inplace=True)
+                x2 = self.downlayers[-1](x2)
+                if alpha > 1:
+                    x == x2
+                else:
+                    x1 = F.interpolate(x, scale_factor=.5, mode="bilinear")
+                    x1 = F.leaky_relu(
+                        self.fromrgbs[-level+1](x1), 0.2, inplace=True)
+                    x = torch.lerp(x1, x2, alpha)
+                for l in renge(1, level):
+                    x = F.leaky_relu(
+                        self.convlayers[-level+l](x), 0.2, inplace=True)
+                    x = self.downlayers[-level+l](self.blur(x))
+                    x = F.leaky_relu(self.lastconv(x), 0.2, inplace=True)
+                    x = x.view(x.size(0), -1)
+                    x = F.leaky_relu(self.fc1(x), 0.2, inplace=True)
+                    o = F.leaky_relu(self.fc2(x), 0.2, inplace=True)
+        else:
+            assert False
+        return o

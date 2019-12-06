@@ -7,12 +7,10 @@ from models.stylegan import StyleGanGenerator, StyleGanDiscriminator
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
-import random
 import logging
 import tqdm
 import os
 from opts import pred_opts
-import warnings
 import matplotlib.cbook
 warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
 

@@ -2,7 +2,6 @@ import torch
 import datetime
 import os
 import argparse
-import sys
 import logging
 from models.stylegan import StyleGanGenerator, StyleGanDiscriminator
 
@@ -17,7 +16,7 @@ class TrainParser():
         parser.add_argument(
             '-i', '--input',
             metavar='DIRECTORY',
-            help='Directory with input images (default: %(default)s)',
+            help='Directory with input images',
             type=str,
             required=True
         )
@@ -43,7 +42,7 @@ class TrainParser():
             metavar='INTEGER',
             help='Batch size (default: %(default)s)',
             type=int,
-            default=2
+            default=9
         )
         # 再開データの存在するディレクトリ(Noneで指定なし)
         parser.add_argument(
@@ -58,7 +57,7 @@ class TrainParser():
             metavar='RESOLUTION',
             help='Image resolution (default: %(default)s)',
             type=int,
-            default=1024
+            default=256
         )
         # GPUを使うかどうか
         parser.add_argument(
@@ -86,7 +85,7 @@ class TrainParser():
             metavar='INTEGER',
             help='Progress output interval (default: %(default)s)',
             type=int,
-            default=250
+            default=200
         )
         # 本物画像の弁別結果に対する勾配罰則係数
         parser.add_argument(
@@ -94,7 +93,7 @@ class TrainParser():
             metavar='NON_NEGATIVE',
             help='Gradient penalty coefficient for discrimination result of real image (default: %(default)s)',
             type=float,
-            default=0.
+            default=10.
         )
         # 生成画像の弁別結果に対する勾配罰則係数
         parser.add_argument(
@@ -110,7 +109,7 @@ class TrainParser():
             metavar=('GEN_LR', 'DIS_LR'),
             nargs=2, type=float,
             help='Learning rate (Generator,Discriminator) (default: %(default)s)',
-            default=[2.434e-4, 2.434e-4]
+            default=[2e-5, 2e-5]
         )
         # 学習率の減衰率(Generator,Discriminator)
         parser.add_argument(
@@ -118,14 +117,22 @@ class TrainParser():
             metavar=('GEN_LR', 'DIS_LR'),
             help='Learning rate decay rate (Generator,Discriminator) (default: %(default)s)',
             nargs=2, type=float,
-            default=[.9, .9]
+            default=[.99, .99]
+        )
+        # 学習率の減衰率(Generator,Discriminator)
+        parser.add_argument(
+            '--blur',
+            metavar=('k00', 'k01', 'k02'),
+            help='Lowpass kernel (all negative: disable) (default: %(default)s)',
+            nargs=3, type=float,
+            default=[-1, -1, -1]
         )
         # Adam Optimizerのハイパーパラメータ
         parser.add_argument(
             '--betas', nargs=2,
             metavar=('BETA1', 'BETA2'),
             help='Adam Optimizer hyperparameters (default: %(default)s)',
-            type=float, default=[.0, .99]
+            type=float, default=[.5, .999]
         )
         self.opts = parser.parse_args()
         self.parse()
@@ -199,8 +206,15 @@ class TrainParser():
         logger.info(f"Resolution: {self.imsize}")
         self.r1gamma = opts.r1gamma
         self.r2gamma = opts.r2gamma
+        logger.info(
+            f"R1 penalty: {self.r1gamma:.3f}, R2 penalty: {self.r2gamma:.3f}"
+        )
         self.show_interval = opts.show_interval
-        self.G = StyleGanGenerator(self.imsize, self.use_specnorm, self.device)
+        self.blur = opts.blur
+        if self.blur[0] < 0:
+            self.blur = None
+        self.G = StyleGanGenerator(
+            self.imsize, self.use_specnorm, self.device, f=self.blur)
         self.D = StyleGanDiscriminator(self.imsize, self.use_specnorm)
         self.start_epoch = 1
         if load_state:

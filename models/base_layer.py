@@ -44,7 +44,7 @@ class FullyConnect(nn.Module):
         return o
 
 
-class DepthwiseConv2d(nn.Module):
+class Blur2d(nn.Module):
     def __init__(self, f=[1, 2, 1], normalize=True, flip=False, stride=1):
         super().__init__()
         if f is not None:
@@ -85,7 +85,7 @@ class Conv2d(nn.Module):
     ):
         super().__init__()
         # He Initalizer
-        he_std = gain * (kernel_size * in_channels) ** -.5
+        he_std = gain * (kernel_size**2 * in_channels) ** -.5
         self.kernel_size = kernel_size
         if use_wscale:
             init_std = 1 / lrmul
@@ -153,6 +153,6 @@ class Upscale2d(nn.Module):
             s = x.shape
             x = x.view(
                 s[0], s[1], s[2], 1, s[3], 1
-            ).repeat(1, 1, 1, self.f, 1, self.f)
+            ).expand(-1, -1, -1, self.f, -1, self.f)
             x = x.contiguous().view(s[0], s[1], self.f * s[2], self.f * s[3])
         return x

@@ -7,12 +7,13 @@ import torchvision_sunner.transforms as trans
 import torchvision_sunner.data as dataset
 from losses import gradient_penalty, r1_penalty, r2_penalty
 from opts import train_opts
+from torchvision import utils
 from torchvision.utils import save_image
+from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 import logging
 import numpy as np
 import math
-import random
 import os
 
 logger = logging.getLogger('Style GAN')
@@ -24,7 +25,6 @@ handler_format = logging.Formatter(
 )
 stream_handler.setFormatter(handler_format)
 logger.addHandler(stream_handler)
-random.seed(42)
 torch.manual_seed(42)
 
 
@@ -32,6 +32,7 @@ def train(opts):
     def log(string, name="stylegan.log"):
         with open(name, 'a') as f:
             f.write(string + '\n')
+    writer = SummaryWriter(str(opts.output))
     loader = dataset.DataLoader(
         dataset=dataset.ImageDataset(
             [[opts.input]],
@@ -48,6 +49,7 @@ def train(opts):
     )
     G = opts.G
     D = opts.D
+    step = 0
     start_epoch = opts.start_epoch
     if opts.resume:
         try:
@@ -79,16 +81,18 @@ def train(opts):
     g_store = [0.0]
     d_store = [0.0]
     for epoch in range(start_epoch, opts.epochs + 1):
-        schedulerD.step()
         bar = tqdm(loader)
         glosses = []
         dlosses = []
         for i, (real, ) in enumerate(bar):
+            step += 1
             D.zero_grad()
             real = real.to(opts.device)
             Dr = D(real)
+            writer.add_graph(D, real)
             z = torch.randn([real.size(0), 512]).to(opts.device)
             fake = G(z)
+            writer.add_graph(G, z)
             Df = D(fake.detach())
             Dloss = sp(Df).mean() + sp(-Dr).mean()
             if opts.r1gamma > 0:
@@ -111,23 +115,36 @@ def train(opts):
                 with torch.no_grad():
                     nr = int(math.ceil(math.sqrt(opts.batch_size)))
                     z = torch.randn([real.size(0), 512]).to(opts.device)
-                    img = G(z).detach().cpu()
+                    img = G(z)
                     save_image(
-                        img,
+                        img.detach().cpu(),
                         os.path.join(opts.output, 'images',
                                      'normal', f'{epoch:04}_{i:06}.png'),
                         nrow=nr,
                         normalize=True
                     )
-                    img = G(fixed_z).detach().cpu()
+                    fakes = utils.make_grid(img, nr, padding=0)
+                    fakes = fakes.to(torch.float32).cpu().numpy()
+                    fakes = np.clip((fakes / 2) + 0.5, 0, 1)
+                    writer.add_image(
+                        f"EPOCH{epoch}/Random", torch.from_numpy(fakes), i)
+                    img = G(fixed_z)
                     save_image(
-                        img,
+                        img.detach().cpu(),
                         os.path.join(opts.output, 'images',
                                      'fixed', f'{epoch:04}_{i:06}.png'),
                         nrow=nr,
                         normalize=True
                     )
-
+                    fakes = utils.make_grid(img, nr, padding=0)
+                    fakes = fakes.to(torch.float32).cpu().numpy()
+                    fakes = np.clip((fakes / 2) + 0.5, 0, 1)
+                    writer.add_image(
+                        f"EPOCH{epoch}/Fixed", torch.from_numpy(fakes), i)
+            writer.add_scalar(f"LOSS/Generator",
+                              Gloss.item(), global_step=step)
+            writer.add_scalar(f"LOSS/Discriminator",
+                              Dloss.item(), global_step=step)
             bar.set_description(
                 f"Epoch {epoch}/{opts.epochs} G: {glosses[-1]:.6f} D: {dlosses[-1]:.6f}"
             )
@@ -142,7 +159,7 @@ def train(opts):
             'opts': opts
         }
         torch.save(state, os.path.join(opts.output, 'models', 'latest.pth'))
-        if epoch % 5 == 0:
+        if epoch % 10 == 0:
             torch.save(
                 state, os.path.join(opts.output, 'models', f'{epoch:04}.pth')
             )

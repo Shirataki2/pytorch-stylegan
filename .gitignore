@@ -9,3 +9,5 @@ nohup.out
 /generate/
 /tmp
 *.pth
+/librosa*
+.ipynb_checkpoints
